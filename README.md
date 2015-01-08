@@ -37,7 +37,7 @@ You must have installed:
 
 Installation: 
 
-1.	extract the PhotoEditor folder and its contents to your filespace
+1.	Download the files to /PhotoEditor folder in your filespace
 
 2.	Edit .../PhotoEditor/photoeditor.wxphp configuration section to set your default path/folders, etc
 
