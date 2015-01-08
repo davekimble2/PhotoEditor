@@ -1,0 +1,850 @@
+<?php	// Photo Editor
+$PhotoEditorVersion = "0.99";
+// ====================== configuration ========================
+$folder = "/home/dk/projects/PhotoEditor";
+$icon = new wxIcon("$folder/icons/photoeditor.png", wxBITMAP_TYPE_PNG );
+$temp = "$folder/temp/";	// work folder
+$defaultOpenDir = "/private/MyPhotos/2014-08-26";
+$defaultSaveDir = "/home/dk/www/davekimble.org.au/public_html/rainforest";
+$defaultAddText = "© Dave Kimble 2015";
+// ====================== used globally ========================
+$dragstartx;
+$dragstarty;
+$dw;
+$mw;
+$photo = false;
+$scale;
+$stack = 0;
+$toolbarheight = 30;
+$buttonsize = new wxSize(28, 28);
+// ====================================================================
+// create main window
+$window = new wxFrame(null, wxID_TOP, "", wxDefaultPosition, wxGetDisplaySize(), ~wxCAPTION );
+wxInitAllImageHandlers();
+$trayicon = new wxTaskBarIcon();
+$trayicon->SetIcon($icon);
+$trayicon->Connect(wxEVT_TASKBAR_LEFT_DOWN, array(wxID_TOP, "trayicon_clicked"));
+// background fills screen
+$vbox0 = new wxBoxSizer(wxVERTICAL);
+	$background = new wxPanel($window, wxID_ANY );
+	$background->SetBackgroundColour(new wxColour(30, 30, 30));
+	$background->Connect(wxEVT_LEFT_DOWN, array(wxID_TOP, "show_toolbar"));
+$vbox0->Add($background, 1, wxEXPAND|wxALL, 0);
+$window->SetSizer($vbox0);
+		$panel = new wxPanel($background);
+		$panel->SetBackgroundColour(new wxColour(30, 30, 30));
+		$panel->SetSize(new wxSize(640, 480));
+		$panel->Centre();
+		$panel->Connect(wxEVT_LEFT_DOWN, array(wxID_TOP, "MouseDown"));
+		$panel->Connect(wxEVT_MOTION, array(wxID_TOP, "MouseMove"));
+		$panel->Connect(wxEVT_LEFT_UP, array(wxID_TOP, "MouseUp"));
+		$panel->Connect(wxEVT_PAINT, array(wxID_TOP, "Paint"));
+$window->ShowFullScreen(true, wxFULLSCREEN_ALL);
+//===============================================
+$toolbar = new wxFrame($window, wxID_ANY, "", new wxPoint(0, 0), new wxSize(wxGetDisplaySize()->GetWidth(), $toolbarheight), ~wxCAPTION | wxFRAME_FLOAT_ON_PARENT);
+$toolbar->SetBackgroundColour(new wxColour(255, 255, 0));
+$vbox1 = new wxBoxSizer(wxVERTICAL);
+	$hbox1 = new wxBoxSizer(wxHORIZONTAL);
+		$openbutton = new wxBitmapButton($toolbar, wxID_ANY, new wxBitmap("$folder/icons/open.png", wxBITMAP_TYPE_PNG),
+			wxDefaultPosition, $buttonsize );
+		$openbutton->Connect(wxEVT_COMMAND_BUTTON_CLICKED, array(wxID_TOP, "open_button_clicked"));
+		$openbutton->SetToolTip("Open File ...");
+	$hbox1->Add($openbutton, 0, wxLEFT|wxRIGHT, 5);
+		$exifbutton = new wxBitmapButton($toolbar, wxID_ANY, new wxBitmap("$folder/icons/properties.png", wxBITMAP_TYPE_PNG),
+			wxDefaultPosition, $buttonsize );
+		$exifbutton->Connect(wxEVT_COMMAND_BUTTON_CLICKED, array(wxID_TOP, "exif_button_clicked"));
+		$exifbutton->SetToolTip("EXIF Properties");
+	$hbox1->Add($exifbutton, 0, wxRIGHT, 5);
+		$trashbutton = new wxBitmapButton($toolbar, wxID_ANY, new wxBitmap("$folder/icons/delete.png", wxBITMAP_TYPE_PNG), 
+			wxDefaultPosition, $buttonsize );
+		$trashbutton->Connect(wxEVT_COMMAND_BUTTON_CLICKED, array(wxID_TOP, "trash_button_clicked"));
+		$trashbutton->SetToolTip("Delete Original !");
+	$hbox1->Add($trashbutton, 0, wxRIGHT, 5);
+		$rotatebutton = new wxBitmapButton($toolbar, wxID_ANY, new wxBitmap("$folder/icons/rotate.png", wxBITMAP_TYPE_PNG), 
+			wxDefaultPosition, $buttonsize );
+		$rotatebutton->Connect(wxEVT_COMMAND_BUTTON_CLICKED, array(wxID_TOP, "rotate_button_clicked"));
+		$rotatebutton->SetToolTip("Rotate clockwise ...");
+	$hbox1->Add($rotatebutton, 0, wxRIGHT, 5);
+		$cropbutton = new wxBitmapButton($toolbar, wxID_ANY, new wxBitmap("$folder/icons/crop.png", wxBITMAP_TYPE_PNG), 
+			wxDefaultPosition, $buttonsize );
+		$cropbutton->Connect(wxEVT_COMMAND_BUTTON_CLICKED, array(wxID_TOP, "crop_button_clicked"));
+		$cropbutton->SetToolTip("Crop ...");
+	$hbox1->Add($cropbutton, 0, wxRIGHT, 5);
+		$resizebutton = new wxBitmapButton($toolbar, wxID_ANY, new wxBitmap("$folder/icons/resize.png", wxBITMAP_TYPE_PNG),  
+			wxDefaultPosition, $buttonsize );
+		$resizebutton->Connect(wxEVT_COMMAND_BUTTON_CLICKED, array(wxID_TOP, "resize_button_clicked"));
+		$resizebutton->SetToolTip("Resize ...");
+	$hbox1->Add($resizebutton, 0, wxRIGHT, 5);
+		$adjustbutton = new wxBitmapButton($toolbar, wxID_ANY, new wxBitmap("$folder/icons/adjust.png", wxBITMAP_TYPE_PNG), 
+			wxDefaultPosition, $buttonsize );
+		$adjustbutton->Connect(wxEVT_COMMAND_BUTTON_CLICKED, array(wxID_TOP, "adjust_button_clicked"));
+		$adjustbutton->SetToolTip("Adjust image ...");
+	$hbox1->Add($adjustbutton, 0, wxRIGHT, 5);
+		$textbutton = new wxBitmapButton($toolbar, wxID_ANY, new wxBitmap("$folder/icons/text.png", wxBITMAP_TYPE_PNG),  
+			wxDefaultPosition, $buttonsize );
+		$textbutton->Connect(wxEVT_COMMAND_BUTTON_CLICKED, array(wxID_TOP, "text_button_clicked"));
+		$textbutton->SetToolTip("Add Text ...");
+	$hbox1->Add($textbutton, 0, wxRIGHT, 5);
+		$linebutton = new wxBitmapButton($toolbar, wxID_ANY, new wxBitmap("$folder/icons/line.png", wxBITMAP_TYPE_PNG),  
+			wxDefaultPosition, $buttonsize );
+		$linebutton->Connect(wxEVT_COMMAND_BUTTON_CLICKED, array(wxID_TOP, "line_button_clicked"));
+		$linebutton->SetToolTip("Add Line ...");
+	$hbox1->Add($linebutton, 0, wxRIGHT, 5);
+		$undobutton = new wxBitmapButton($toolbar, wxID_ANY, new wxBitmap("$folder/icons/undo.png", wxBITMAP_TYPE_PNG), 
+			wxDefaultPosition, $buttonsize );
+		$undobutton->Connect(wxEVT_COMMAND_BUTTON_CLICKED, array(wxID_TOP, "undo_button_clicked"));
+		$undobutton->SetToolTip("Undo");
+	$hbox1->Add($undobutton, 0, wxRIGHT, 5);
+		$savebutton = new wxBitmapButton($toolbar, wxID_ANY, new wxBitmap("$folder/icons/save.png", wxBITMAP_TYPE_PNG),  
+			wxDefaultPosition, $buttonsize );
+		$savebutton->Connect(wxEVT_COMMAND_BUTTON_CLICKED, array(wxID_TOP, "save_button_clicked"));
+		$savebutton->SetToolTip("Save");
+	$hbox1->Add($savebutton, 0, wxRIGHT, 5);
+		$saveasbutton = new wxBitmapButton($toolbar, wxID_ANY, new wxBitmap("$folder/icons/save-as.png", wxBITMAP_TYPE_PNG),  
+			wxDefaultPosition, $buttonsize );
+		$saveasbutton->Connect(wxEVT_COMMAND_BUTTON_CLICKED, array(wxID_TOP, "saveas_button_clicked"));
+		$saveasbutton->SetToolTip("Save As ...");
+	$hbox1->Add($saveasbutton, 0, wxRIGHT, 5);
+	$hbox1->AddSpacer(50);
+		$label0 = new wxStaticText($toolbar, wxID_ANY, "  File ");
+	$hbox1->Add($label0, 0, wxALIGN_CENTRE_VERTICAL, 0);
+		$filebox = new wxTextCtrl($toolbar, wxID_ANY, "", wxDefaultPosition, new wxSize((wxGetDisplaySize()->GetWidth() - 1135), 26));
+	$hbox1->Add($filebox, 0, wxRIGHT, 5);	
+		$label1 = new wxStaticText($toolbar, wxID_ANY, "Width ");
+	$hbox1->Add($label1, 0, wxALIGN_CENTRE_VERTICAL, 0);
+		$widthbox = new wxTextCtrl($toolbar, wxID_ANY, "", wxDefaultPosition, new wxSize(60, 26));
+	$hbox1->Add($widthbox, 0, wxRIGHT, 5);
+		$label2 = new wxStaticText($toolbar, wxID_ANY, "Height ");
+	$hbox1->Add($label2, 0, wxALIGN_CENTRE_VERTICAL, 0);
+		$heightbox = new wxTextCtrl($toolbar, wxID_ANY, "", wxDefaultPosition, new wxSize(60, 26));
+	$hbox1->Add($heightbox, 0, wxRIGHT, 5);
+		$label3 = new wxStaticText($toolbar, wxID_ANY, "Scale ");
+	$hbox1->Add($label3, 0, wxALIGN_CENTRE_VERTICAL, 0);
+		$scalebox = new wxTextCtrl($toolbar, wxID_ANY, "", wxDefaultPosition, new wxSize(60, 26));
+	$hbox1->Add($scalebox, 0, wxRIGHT, 5);
+	$hbox1->AddSpacer(50);
+		$aboutbutton = new wxBitmapButton($toolbar, wxID_ANY, new wxBitmap("$folder/icons/about.png", wxBITMAP_TYPE_PNG),  
+			wxDefaultPosition, $buttonsize );
+		$aboutbutton->Connect(wxEVT_COMMAND_BUTTON_CLICKED, array(wxID_TOP, "about_button_clicked"));
+		$aboutbutton->SetToolTip("About");
+	$hbox1->Add($aboutbutton, 0, wxRIGHT, 5);
+		$hidetoolbarbutton = new wxBitmapButton($toolbar, wxID_ANY, new wxBitmap("$folder/icons/hide-toolbar.png", wxBITMAP_TYPE_PNG), 
+			wxDefaultPosition, $buttonsize );
+		$hidetoolbarbutton->Connect(wxEVT_COMMAND_BUTTON_CLICKED, array(wxID_TOP, "hide_toolbar_clicked"));
+		$hidetoolbarbutton->SetToolTip("Hide Toolbar");
+	$hbox1->Add($hidetoolbarbutton, 0, wxRIGHT, 5);
+		$minimizebutton = new wxBitmapButton($toolbar, wxID_ANY, new wxBitmap("$folder/icons/minimize.png", wxBITMAP_TYPE_PNG), 
+			wxDefaultPosition, $buttonsize );
+		$minimizebutton->Connect(wxEVT_COMMAND_BUTTON_CLICKED, array(wxID_TOP, "minimize_button_clicked"));
+		$minimizebutton->SetToolTip("Minimize PhotoEditor");
+	$hbox1->Add($minimizebutton, 0, wxRIGHT, 2);
+		$quitbutton = new wxBitmapButton($toolbar, wxID_ANY, new wxBitmap("$folder/icons/exit.png", wxBITMAP_TYPE_PNG), 
+			wxDefaultPosition, $buttonsize );
+		$quitbutton->Connect(wxEVT_COMMAND_BUTTON_CLICKED, array(wxID_TOP, "quit_button_clicked"));
+		$quitbutton->SetToolTip("Quit PhotoEditor");
+	$hbox1->Add($quitbutton, 0, wxALL, 0);	
+$vbox1->Add($hbox1, 0, wxALL, 1);
+$toolbar->SetSizer($vbox1);
+$toolbar->Show();
+//===============================================
+$resize = new wxFrame($window, wxID_ANY, "Resize image", new wxPoint(0,$toolbarheight), new wxSize(250, 250), wxDEFAULT_FRAME_STYLE | wxFRAME_FLOAT_ON_PARENT);
+$vbox2 = new wxBoxSizer(wxVERTICAL);
+	$hbox20 = new wxBoxSizer(wxHORIZONTAL);
+		$radiobox2 = new wxRadioBox($resize, wxID_ANY, "", wxDefaultPosition, wxDefaultSize, 
+			array("Pixels", "Percentage") );
+	$hbox20->Add($radiobox2, 0, wxALL, 5);
+		$resizepcbox = new wxTextCtrl($resize, wxID_ANY, "100", wxDefaultPosition, new wxSize(40, 26));
+	$hbox20->Add($resizepcbox, 0, wxALIGN_CENTRE_VERTICAL, 5);
+$vbox2->Add($hbox20, 0, wxALL, 5);
+	$hbox21 = new wxBoxSizer(wxHORIZONTAL);
+		$label20 = new wxStaticText($resize, wxID_ANY, "Width ");
+	$hbox21->Add($label20, 0, wxALIGN_CENTRE_VERTICAL, 5);
+		$resizewidthbox = new wxTextCtrl($resize, wxID_ANY, "1280", wxDefaultPosition, new wxSize(50, 26));
+	$hbox21->Add($resizewidthbox, 0, wxALL, 5);
+$vbox2->Add($hbox21, 0, wxALL, 5);
+	$hbox22 = new wxBoxSizer(wxHORIZONTAL);
+		$label30 = new wxStaticText($resize, wxID_ANY, "Height");
+	$hbox22->Add($label30, 0, wxALIGN_CENTRE_VERTICAL, 5);
+		$resizeheightbox = new wxTextCtrl($resize, wxID_ANY, "1024", wxDefaultPosition, new wxSize(50, 26));
+	$hbox22->Add($resizeheightbox, 0, wxALL, 5);
+$vbox2->Add($hbox22, 0, wxALL, 5);
+	$hbox23 = new wxBoxSizer(wxHORIZONTAL);
+		$cancelbutton = new wxButton($resize, wxID_ANY, "Cancel");
+		$cancelbutton->Connect(wxEVT_COMMAND_BUTTON_CLICKED, array(wxID_TOP, "resize_cancel_button_clicked"));
+	$hbox23->Add($cancelbutton, 0, wxALL, 5);
+		$OKbutton = new wxButton($resize, wxID_ANY, "OK");
+		$OKbutton->Connect(wxEVT_COMMAND_BUTTON_CLICKED, array(wxID_TOP, "resize_OK_button_clicked"));
+	$hbox23->Add($OKbutton, 0, wxALL, 5);
+$vbox2->Add($hbox23, 0, wxALL, 5);
+$resize->SetSizer($vbox2);
+$resize->Hide();
+//===============================================
+$adjust = new wxFrame($window, wxID_ANY, "Adjustments", new wxPoint(0, $toolbarheight), 
+		new wxSize(200, 250), wxDEFAULT_FRAME_STYLE | wxFRAME_FLOAT_ON_PARENT );
+$vbox3 = new wxBoxSizer(wxVERTICAL);
+	$hint = new wxStaticText($adjust, wxID_ANY, "Try values -10 to +10");
+$vbox3->Add($hint, 0, wxALL, 10);
+	$gbox3 = new wxGridSizer(7, 2, 3, 2);
+		$label40 = new wxStaticText($adjust, wxID_ANY, "Brightness", wxDefaultPosition, new wxSize(80,24));
+	$gbox3->Add($label40, 0, wxLEFT|wxRIGHT, 5);
+		$brightness = new wxTextCtrl($adjust, wxID_ANY, "0", wxDefaultPosition, new wxSize(60, 24));
+	$gbox3->Add($brightness, 0, wxLEFT|wxRIGHT, 5);
+		$label41 = new wxStaticText($adjust, wxID_ANY, "Saturation", wxDefaultPosition, new wxSize(80,24));
+	$gbox3->Add($label41, 0, wxLEFT|wxRIGHT, 5);
+		$saturation = new wxTextCtrl($adjust, wxID_ANY, "0", wxDefaultPosition, new wxSize(60, 24));
+	$gbox3->Add($saturation, 0, wxLEFT|wxRIGHT, 5);
+		$label42 = new wxStaticText($adjust, wxID_ANY, "Hue", wxDefaultPosition, new wxSize(80,24));
+	$gbox3->Add($label42, 0, wxLEFT|wxRIGHT, 5);
+		$hue = new wxTextCtrl($adjust, wxID_ANY, "0", wxDefaultPosition, new wxSize(60, 24));
+	$gbox3->Add($hue, 0, wxLEFT|wxRIGHT, 5);
+		$label43 = new wxStaticText($adjust, wxID_ANY, "Contrast", wxDefaultPosition, new wxSize(80,24));
+	$gbox3->Add($label43, 0, wxLEFT|wxRIGHT, 5);
+		$contrast = new wxTextCtrl($adjust, wxID_ANY, "0", wxDefaultPosition, new wxSize(60, 24));
+	$gbox3->Add($contrast, 0, wxLEFT|wxRIGHT, 5);
+		$label44 = new wxStaticText($adjust, wxID_ANY, "Gamma", wxDefaultPosition, new wxSize(80,24));
+	$gbox3->Add($label44, 0, wxLEFT|wxRIGHT, 5);
+		$gamma = new wxTextCtrl($adjust, wxID_ANY, "0", wxDefaultPosition, new wxSize(60, 24));
+	$gbox3->Add($gamma, 0, wxLEFT|wxRIGHT, 5);
+		$label45 = new wxStaticText($adjust, wxID_ANY, "Sharpen", wxDefaultPosition, new wxSize(80,24));
+	$gbox3->Add($label45, 0, wxLEFT|wxRIGHT, 5);
+		$sharpen = new wxTextCtrl($adjust, wxID_ANY, "0", wxDefaultPosition, new wxSize(60, 24));
+	$gbox3->Add($sharpen, 0, wxLEFT|wxRIGHT, 5);
+		$adjustcancelbutton = new wxButton($adjust, wxID_ANY, "Cancel", wxDefaultPosition, new wxSize(60,24));
+		$adjustcancelbutton->Connect(wxEVT_COMMAND_BUTTON_CLICKED, array(wxID_TOP, "adjust_cancel_button_clicked"));
+	$gbox3->Add($adjustcancelbutton, 0, wxLEFT|wxRIGHT, 5);
+		$adjustOKbutton = new wxButton($adjust, wxID_ANY, "OK", wxDefaultPosition, new wxSize(60,24));
+		$adjustOKbutton->Connect(wxEVT_COMMAND_BUTTON_CLICKED, array(wxID_TOP, "adjust_OK_button_clicked"));
+	$gbox3->Add($adjustOKbutton, 0, wxLEFT|wxRIGHT, 5);
+$vbox3->Add($gbox3, 0, wxALL, 5);
+$adjust->SetSizer($vbox3);
+$adjust->Hide();
+//===============================================
+$crop = new wxFrame($window, wxID_ANY, "Fine Crop", new wxPoint(0, $toolbarheight), new wxSize(200, 300), wxDEFAULT_FRAME_STYLE | wxFRAME_FLOAT_ON_PARENT);
+$vbox4 = new wxBoxSizer(wxVERTICAL);
+	$radiobox4 = new wxRadioBox($crop, wxID_ANY, "", wxDefaultPosition, wxDefaultSize, 
+			array("Select by mouse", "Trim Edges"), 1 );
+$vbox4->Add($radiobox4, 0, wxALL, 10);
+	$gbox4 = new wxGridSizer(5, 2, 5, 5);
+		$label50 = new wxStaticText($crop, wxID_ANY, "Top", wxDefaultPosition, new wxSize(80,24));
+	$gbox4->Add($label50, 0, wxLEFT|wxRIGHT, 5);
+		$croptopbox = new wxTextCtrl($crop, wxID_ANY, "0", wxDefaultPosition, new wxSize(80, 24));
+	$gbox4->Add($croptopbox, 0, wxLEFT|wxRIGHT, 5);
+		$label51 = new wxStaticText($crop, wxID_ANY, "Bottom", wxDefaultPosition, new wxSize(80,24));
+	$gbox4->Add($label51, 0, wxLEFT|wxRIGHT, 5);
+		$cropbottombox = new wxTextCtrl($crop, wxID_ANY, "0", wxDefaultPosition, new wxSize(80, 24));
+	$gbox4->Add($cropbottombox, 0, wxLEFT|wxRIGHT, 5);
+		$label52 = new wxStaticText($crop, wxID_ANY, "Left", wxDefaultPosition, new wxSize(80,24));
+	$gbox4->Add($label52, 0, wxLEFT|wxRIGHT, 5);
+		$cropleftbox = new wxTextCtrl($crop, wxID_ANY, "0", wxDefaultPosition, new wxSize(80, 24));
+	$gbox4->Add($cropleftbox, 0, wxLEFT|wxRIGHT, 5);
+		$label53 = new wxStaticText($crop, wxID_ANY, "Right", wxDefaultPosition, new wxSize(80,24));
+	$gbox4->Add($label53, 0, wxLEFT|wxRIGHT, 5);
+		$croprightbox = new wxTextCtrl($crop, wxID_ANY, "0", wxDefaultPosition, new wxSize(80, 24));
+	$gbox4->Add($croprightbox, 0, wxLEFT|wxRIGHT, 5);
+		$cropcancelbutton = new wxButton($crop, wxID_ANY, "Cancel", wxDefaultPosition, new wxSize(80,24));
+		$cropcancelbutton->Connect(wxEVT_COMMAND_BUTTON_CLICKED, array(wxID_TOP, "crop_cancel_button_clicked"));
+	$gbox4->Add($cropcancelbutton, 0, wxLEFT|wxRIGHT, 5);
+		$cropOKbutton = new wxButton($crop, wxID_ANY, "OK", wxDefaultPosition, new wxSize(80,24));
+		$cropOKbutton->Connect(wxEVT_COMMAND_BUTTON_CLICKED, array(wxID_TOP, "crop_OK_button_clicked"));
+	$gbox4->Add($cropOKbutton, 0, wxLEFT|wxRIGHT, 5);
+$vbox4->Add($gbox4, 0, wxALL, 5);
+$crop->SetSizer($vbox4);
+$crop->Hide();
+//===============================================
+$exif = new wxFrame($window, wxID_ANY, "EXIF Data", new wxPoint(0, $toolbarheight), new wxSize(800, 800), wxDEFAULT_FRAME_STYLE | wxFRAME_FLOAT_ON_PARENT );
+$vbox5 = new wxBoxSizer(wxVERTICAL);
+	$hbox5 = new wxBoxSizer(wxHORIZONTAL);
+		$exiffilebox = new wxTextCtrl($exif, wxID_ANY, "",  wxDefaultPosition, new wxSize(700, 24));
+	$hbox5->Add($exiffilebox, 0, wxALL, 10);
+		$hideexifbutton = new wxButton($exif, wxID_ANY, "Hide", wxDefaultPosition, new wxSize(60, 24));
+		$hideexifbutton->Connect(wxEVT_COMMAND_BUTTON_CLICKED, array(wxID_TOP, "hide_exif_button_clicked"));
+	$hbox5->Add($hideexifbutton, 0, wxALL, 10);
+$vbox5->Add($hbox5, 0, wxALL, 0);
+	// grid control
+	$gridview = new wxGrid($exif, wxID_ANY, wxDefaultPosition, wxDefaultSize, wxTE_READONLY|wxTEXT_ATTR_FONT_SIZE );
+	//grid options
+	$gridview->CreateGrid(1, 3);
+	$gridview->EnableEditing(false);
+	$gridview->EnableGridLines(true);
+	$gridview->SetGridLineColour(new wxColour(240, 240, 240));
+	$gridview->EnableDragGridSize(false);
+	$gridview->EnableDragColSize(true);
+	// row options
+	$gridview->SetRowLabelSize(0);
+	// column options
+	$gridview->SetColSize(0,100);
+	$gridview->SetColSize(1,200);
+	$gridview->SetColSize(2,460);
+	// cell options
+	$gridview->SetColLabelValue(0, "Section");
+	$gridview->SetColLabelValue(1, "Tag");
+	$gridview->SetColLabelValue(2, "Value");
+	//
+	$gridview->Layout();
+$vbox5->Add($gridview, 1, wxEXPAND|wxALL, 10);
+$exif->SetSizer($vbox5);
+$exif->Hide();
+//===============================================
+$text = new wxFrame($window, wxID_ANY, "Add Text", new wxPoint(0, $toolbarheight), new wxSize(420, 350), wxDEFAULT_FRAME_STYLE | wxFRAME_FLOAT_ON_PARENT );
+$vbox6 = new wxBoxSizer(wxVERTICAL);
+	$hbox6 = new wxBoxSizer(wxHORIZONTAL);
+		$fontpicker = new wxFontPickerCtrl($text, wxID_ANY);
+	$hbox6->Add($fontpicker, 0, wxALL, 10);
+		$textcolourpicker = new wxColourPickerCtrl($text, wxID_ANY, wxWHITE);
+	$hbox6->Add($textcolourpicker, 0, wxALL, 10);
+$vbox6->Add($hbox6, 0, wxALL, 0);
+	$textbox = new wxTextCtrl($text, wxID_ANY, $defaultAddText, wxDefaultPosition, new wxSize(400, 52), wxTE_MULTILINE );
+$vbox6->Add($textbox, 0, wxALL, 10);
+	$radiobox6 = new wxRadioBox($text, wxID_ANY, "", wxDefaultPosition, wxDefaultSize, 
+		array("Locate by mouse", "Locate by Left, Bottom"), 1 );
+$vbox6->Add($radiobox6, 0, wxALL, 10);	
+	$hbox60 = new wxBoxSizer(wxHORIZONTAL);
+		$textleftbox = new wxTextCtrl($text, wxID_ANY, "");
+	$hbox60->Add($textleftbox, 0, wxALL,10);
+		$textbottombox = new wxTextCtrl($text, wxID_ANY, "");
+	$hbox60->Add($textbottombox, 0, wxALL,10);
+$vbox6->Add($hbox60, 0, wxALL, 0);
+	$hbox61 = new wxBoxSizer(wxHORIZONTAL);
+		$textcancelbutton = new wxButton($text, wxID_ANY, "Cancel", wxDefaultPosition, new wxSize(60, 24));
+		$textcancelbutton->Connect(wxEVT_COMMAND_BUTTON_CLICKED, array(wxID_TOP, "text_cancel_button_clicked"));
+	$hbox61->Add($textcancelbutton, 0, wxALL, 10);
+		$textOKbutton = new wxButton($text, wxID_ANY, "OK", wxDefaultPosition, new wxSize(60, 24));
+		$textOKbutton->Connect(wxEVT_COMMAND_BUTTON_CLICKED, array(wxID_TOP, "text_OK_button_clicked"));
+	$hbox61->Add($textOKbutton, 0, wxALL, 10);
+$vbox6->Add($hbox61, 0, wxALL, 0);
+$text->SetSizer($vbox6);
+$text->Hide();
+//===============================================
+$line = new wxFrame($window, wxID_ANY, "Add Line", new wxPoint(0, $toolbarheight), new wxSize(200, 200), wxDEFAULT_FRAME_STYLE | wxFRAME_FLOAT_ON_PARENT );
+$vbox7 = new wxBoxSizer(wxVERTICAL);
+	$gbox7 = new wxGridSizer(3, 2, 2, 2);
+		$label70 = new wxStaticText($line, wxID_ANY, "Line Colour", wxDefaultPosition, new wxSize(80, 26));
+	$gbox7->Add($label70, 0, wxALIGN_CENTRE_VERTICAL|wxALL, 5);
+		$linecolourpicker = new wxColourPickerCtrl($line, wxID_ANY, wxWHITE);
+	$gbox7->Add($linecolourpicker, 0, wxALIGN_CENTRE_VERTICAL|wxALL, 5);
+		$label71 = new wxStaticText($line, wxID_ANY, "Line Width", wxDefaultPosition, new wxSize(80, 26) );
+	$gbox7->Add($label71, 0, wxALIGN_CENTRE_VERTICAL|wxALL, 5);
+		$linewidth = new wxTextCtrl($line, wxID_ANY, "1", wxDefaultPosition, new wxSize(40, 26) );
+	$gbox7->Add($linewidth, 0, wxALIGN_CENTRE_VERTICAL|wxALL, 5);
+		$linecancelbutton = new wxButton($line, wxID_ANY, "Cancel", wxDefaultPosition, new wxSize(60, 26) );
+		$linecancelbutton->Connect(wxEVT_COMMAND_BUTTON_CLICKED, array(wxID_TOP, "line_cancel_button_clicked"));
+	$gbox7->Add($linecancelbutton, 0, wxALL, 5);
+		$lineOKbutton = new wxButton($line, wxID_ANY, "OK", wxDefaultPosition, new wxSize(60, 26) );
+		$lineOKbutton->Connect(wxEVT_COMMAND_BUTTON_CLICKED, array(wxID_TOP, "line_OK_button_clicked"));
+	$gbox7->Add($lineOKbutton, 0, wxALL, 5);
+$vbox7->Add($gbox7, 0, wxALL, 0);
+$line->SetSizer($vbox7);
+$line->Hide();
+//===============================================
+$rotate = new wxFrame($window, wxID_ANY, "Rotate", new wxPoint(0, $toolbarheight), new wxSize(160, 120), wxDEFAULT_FRAME_STYLE | wxFRAME_FLOAT_ON_PARENT );
+$vbox8 = new wxBoxSizer(wxVERTICAL);
+	$gbox8 = new wxGridSizer(2, 2, 2, 2);
+		$label80 = new wxStaticText($rotate, wxID_ANY, "Angle", wxDefaultPosition, new wxSize(60, 26));
+	$gbox8->Add($label80, 0, wxALIGN_CENTRE_VERTICAL|wxALL, 5);
+		$rotateangle = new wxTextCtrl($rotate, wxID_ANY, "90", wxDefaultPosition, new wxSize(60, 26));
+	$gbox8->Add($rotateangle, 0, wxALIGN_CENTRE_VERTICAL|wxALL, 5);
+		$rotatecancelbutton = new wxButton($rotate, wxID_ANY, "Cancel", wxDefaultPosition, new wxSize(60, 26) );
+		$rotatecancelbutton->Connect(wxEVT_COMMAND_BUTTON_CLICKED, array(wxID_TOP, "rotate_cancel_button_clicked"));
+	$gbox8->Add($rotatecancelbutton, 0, wxALL, 5);
+		$rotateOKbutton = new wxButton($rotate, wxID_ANY, "OK", wxDefaultPosition, new wxSize(60, 26) );
+		$rotateOKbutton->Connect(wxEVT_COMMAND_BUTTON_CLICKED, array(wxID_TOP, "rotate_OK_button_clicked"));
+	$gbox8->Add($rotateOKbutton, 0, wxALL, 5);
+$vbox8->Add($gbox8, 0, wxALL, 5);
+$rotate->SetSizer($vbox8);
+$rotate->Hide();
+//===============================================
+wxEntry();
+//===============================================
+function minimize_button_clicked()
+{	global $toolbar, $window ;
+	$toolbar->Hide();
+	$window->Hide();
+}
+//===============================================
+function trayicon_clicked()
+{	global $window, $toolbar ;
+	if($toolbar->IsShown())
+	{	$window->Hide();
+		$toolbar->Hide(); 
+	}
+	else
+	{	$window->Show();
+		$toolbar->Show();
+	}
+}
+//===============================================
+function show_toolbar()
+{	global $toolbar ;
+	$toolbar->Show();
+}
+// ===================================================================
+function open_button_clicked()
+{	global $background, $photo, $defaultOpenDir, $file, $filebox, $mw, $stack, $window ;
+	// choose file to open
+	$opendialog = new wxFileDialog($window, "Select file to open ...", $defaultOpenDir, wxEmptyString, "*", wxFD_OPEN );
+	if($opendialog->ShowModal() != wxID_OK) { $opendialog->Destroy();  return 0; }
+	$file = $opendialog->GetPath();
+	$filebox->SetValue($file);
+	$opendialog->Destroy();
+	// 
+	if(IsMagickWand($mw)) { DestroyMagickWand($mw); }
+	$mw = NewMagickWand();
+	MagickReadImage($mw, $file);
+	$stack = 0;
+	newpaint();
+}
+//===============================================
+function exif_button_clicked()
+{	global $exif, $exiffilebox, $filebox, $gridview ;
+	$exiffilebox->SetValue($filebox->GetValue());
+	$rows = $gridview->GetNumberRows();
+	if($rows > 1) { $gridview->DeleteRows(1, $rows - 1); }
+	$gridview->ClearGrid();
+	//
+	$exiftags = exif_read_data($filebox->GetValue(), 0, true);
+	if(!$exiftags)
+	{	$gridview->SetCellValue(0, 2, "No EXIF data found");
+		return 0;
+	}
+	$i=0;
+	foreach($exiftags as $section => $secarray)
+	{	foreach($secarray as $tag => $value)
+		{	$gridview->SetCellValue($i, 0, $section);
+			$gridview->SetCellValue($i, 1, $tag);
+			if(is_array($value)) 
+			{	if($section == "GPS")
+				{	
+					$degrees = substr($value[0], 0, strpos($value[0], "/"));
+					$minutes = substr($value[1], 0, strpos($value[1], "/"));
+					$temp = explode('/', $value[2]);
+					$seconds = $temp[0] / $temp[1];
+					$value = $degrees+($minutes/60)+($seconds/3600) ; 
+				}
+				else
+				{	$value = "[".implode(",", $value)."]"; }
+			}
+			$gridview->SetCellValue($i, 2, $value);
+			$gridview->AppendRows(1);
+			$i++;
+		}
+	}
+	$exif->Show();
+}
+//===============================================
+function hide_exif_button_clicked()
+{	global $exif ;
+	$exif->Hide();
+}
+//===============================================
+function trash_button_clicked()
+{	global $panel, $filebox ;
+	$panel->Destroy();
+	unlink($filebox->GetValue());
+}
+//===============================================
+function rotate_button_clicked()
+{	global $photo, $mw, $rotate ;
+	$rotate->Show();
+}
+//===============================================
+function rotate_cancel_button_clicked()
+{	global $photo, $mw, $rotate ;
+	$rotate->Hide();
+}
+//===============================================
+function rotate_OK_button_clicked()
+{	global $mw, $rotate, $rotateangle ;
+	$rotate->Hide();
+	MagickRotateImage($mw, null, $rotateangle->GetValue());
+	newpaint();
+}
+//===============================================
+function crop_button_clicked()
+{	global $crop, $radiobox4, $croptopbox, $cropleftbox, $croprightbox, $cropbottombox ;
+	$radiobox4->SetSelection(0);
+	$croptopbox->SetValue(0);
+	$cropleftbox->SetValue(0);
+	$croprightbox->SetValue(0);
+	$cropbottombox->SetValue(0);
+	$crop->Show();
+}
+//===============================================
+function crop_cancel_button_clicked()
+{	global $crop ;
+	$crop->Hide();
+}
+//===============================================
+function crop_OK_button_clicked()
+{	global $cropbottombox, $bottomrightx, $bottomrighty, $crop, $heightbox, $cropleftbox, $mw, $radiobox4, $croprightbox, $croptopbox, $topleftx, $toplefty, $widthbox ;
+	$crop->Hide();
+	if($radiobox4->GetSelection() == 0)	// by mouse
+	{	MagickCropImage
+		(	$mw, 
+			($bottomrightx - $topleftx - 4), 
+			($bottomrighty - $toplefty - 4),
+			$topleftx + 2, 
+			$toplefty + 2
+		);
+	}
+	else	// trim edges
+	{	MagickCropImage
+		(	$mw, 
+			($widthbox->GetValue() - $cropleftbox->GetValue() - $croprightbox->GetValue() ), 
+			($heightbox->GetValue() - $croptopbox->GetValue() - $cropbottombox->GetValue() ),
+			$cropleftbox->GetValue(), 
+			$croptopbox->GetValue()
+		);
+	}
+	newpaint();
+}
+//===============================================
+function resize_button_clicked()
+{	global $radiobox2, $resize, $resizepcbox, $resizewidthbox, $resizeheightbox, $heightbox, $widthbox;
+	$radiobox2->SetSelection(1);		// percentage
+	$resizepcbox->SetValue("100");
+	$resizewidthbox->SetValue($widthbox->GetValue());
+	$resizeheightbox->SetValue($heightbox->GetValue());
+	$resize->Show();
+}
+//===============================================
+function resize_cancel_button_clicked()
+{	global $resize;
+	$resize->Hide();
+}
+//===============================================
+function resize_OK_button_clicked()
+{	global $heightbox, $mw, $radiobox2, $resize, $resizepcbox, $resizeheightbox, $resizewidthbox, $widthbox ;
+	$resize->Hide();
+	if($radiobox2->GetSelection() == 0)	// if Pixels
+	{	$resizepcwidth = $resizewidthbox->GetValue() / $widthbox->GetValue();
+		$resizepcheight = $resizeheightbox->GetValue() / $heightbox->GetValue();
+		$resizepc = max($resizepcwidth, $resizepcheight);
+		$width = $widthbox->GetValue() * $resizepc;
+		$height = $heightbox->GetValue() * $resizepc;
+	}
+	else	// Percentage
+	{	$resizepc = $resizepcbox->GetValue();
+		$width = $widthbox->GetValue() * $resizepc / 100;	
+		$height = $heightbox->GetValue() * $resizepc / 100;
+	}
+	//
+	MagickResizeImage($mw, $width, $height, MW_CubicFilter, 1.0);
+	newpaint();
+}
+//===============================================
+function adjust_button_clicked()
+{	global $adjust ;
+	$adjust->Show();
+	
+}
+//===============================================
+function adjust_cancel_button_clicked()
+{	global $adjust ;
+	$adjust->Hide();
+}
+//===============================================
+function adjust_OK_button_clicked()
+{	global $adjust, $brightness, $saturation, $hue, $contrast, $gamma, $sharpen, $mw ;
+	$adjust->Hide();
+	$b = floatval($brightness->GetValue()) + 100;
+	$s = floatval($saturation->GetValue()) + 100;
+	$h = floatval($hue->GetValue()) + 100;
+	$c = floatval($contrast->GetValue());	
+	$g = floatval($gamma->GetValue() / 10 + 1);
+	$u = floatval($sharpen->GetValue());
+	if(($b != 100.0) || ($s != 100.0) || ($h != 100.0)) 
+	{	MagickModulateImage($mw, $b, $s, $h ); 
+	}
+	if($c > 0.0) { MagickContrastImage($mw, true); } 
+	if($c < 0.0) { MagickContrastImage($mw, false); }
+	if($g != 1.0) { MagickGammaImage($mw, $g); }
+	if($u > 0.0) { MagickSharpenImage($mw, 0, $u); }
+	newpaint();
+}
+//===============================================
+function text_button_clicked()
+{	global $text ;
+	$text->Show();
+}
+//===============================================
+function text_cancel_button_clicked()
+{	global $text ;
+	$text->Hide();
+}
+//===============================================
+function text_OK_button_clicked()
+{	global $mw, $fontpicker, $textcolourpicker, $text, $textbottombox, $textbox, $textleftbox ;
+	$text->Hide();
+	$dw = NewDrawingWand();
+	$font = $fontpicker->GetSelectedFont();
+	//
+	$face = $font->GetFaceName();
+	DrawSetFont($dw, $face);
+	//
+	$family = $font->GetFamily();
+	DrawSetFontFamily($dw, $family);
+	//
+	$size = floatval($font->GetPointSize());
+	DrawSetFontSize($dw, $size);
+	//
+	$wxstyle = $font->GetStyle();
+	if($wxstyle == wxFONTSTYLE_NORMAL) { $mwstyle = MW_NormalStyle; }
+	if($wxstyle == wxFONTSTYLE_ITALIC) { $mwstyle = MW_ItalicStyle; }
+	if($wxstyle == wxFONTSTYLE_SLANT)  { $mwstyle = MW_ObliqueStyle; }
+	DrawSetFontStyle($dw, $mwstyle);
+	//
+	$wxweight = $font->GetWeight();
+	if($wxweight == wxFONTWEIGHT_NORMAL) { $mwweight = 100.0; }
+	if($wxweight == wxFONTWEIGHT_BOLD) { $mwweight = 200.0; }
+	DrawSetFontWeight($dw, $mwweight);
+	//
+	$red = $textcolourpicker->GetColour()->Red();
+	$green = $textcolourpicker->GetColour()->Green();
+	$blue = $textcolourpicker->GetColour()->Blue();
+	$mwcolour = "rgb($red, $green, $blue)";
+	DrawSetFillColor($dw, NewPixelWand($mwcolour));
+	//
+	MagickAnnotateImage($mw, $dw, $textleftbox->GetValue(), $textbottombox->GetValue(), 0, $textbox->GetValue());
+	newpaint();
+}
+//===============================================
+function line_button_clicked()
+{	global $line ;
+	$line->Show();
+}
+//===============================================
+function line_cancel_button_clicked()
+{	global $line ;
+	$line->Hide();
+}
+//===============================================
+function line_OK_button_clicked()
+{	global $line, $linecolourpicker, $linewidth, $mw ;
+	$line->Hide();
+}
+//===============================================
+function undo_button_clicked()
+{	global $stack ;
+	if($stack == 0)
+	{	wxMessageBox("Cannot undo", "Undo error");
+		return ;
+	}
+	undopaint();
+}
+//===============================================
+function save_button_clicked()
+{	global $mw, $filebox ;
+	$file = $filebox->GetValue();
+	$result = MagickWriteImage($mw, $file);
+	if(!$result)
+	{	wxMessageBox("Saving to $file failed: $result", "Save Error");
+		return 0;	
+	}
+}
+//===============================================
+function saveas_button_clicked()
+{	global $defaultSaveDir, $filebox, $mw, $window ;
+	$savedialog = new wxFileDialog($window, "Select file to write ...", $defaultSaveDir, wxEmptyString, "*", wxFD_SAVE );
+	if($savedialog->ShowModal() != wxID_OK)
+	{	$savedialog->Destroy();
+		return 0; 
+	}
+	$file = $savedialog->GetPath();
+	$savedialog->Destroy();
+	//
+	if( (file_exists($file) && !is_writable($file)) || 
+		(!file_exists($file) && !is_writeable(substr($file, 0, strrpos($file, "/")+1)))
+	  )
+		{	wxMessageBox("$file is not writable", "SaveAs Error");
+		return 0;
+	}
+	//
+	$result = MagickWriteImage($mw, $file);
+	if(!$result)
+	{	wxMessageBox("Saving to $file failed: $result", "SaveAs Error");
+		return 0;
+	}
+	$filebox->SetValue($file);
+}
+//===============================================
+function hide_toolbar_clicked()
+{	global $toolbar ;
+	$toolbar->Hide();
+}
+//===============================================
+function hide_window_clicked()
+{	global $toolbar, $window ;
+	$window->Hide();
+	$toolbar->Hide();
+}
+//===============================================
+function about_button_clicked()
+{	global $PhotoEditorVersion ;
+	$im = MagickGetVersionString();
+	$im = substr($im, 0, strpos($im, "2015"));
+	$wx = wxGetLibraryVersionInfo();
+	$wxwidgets = $wx->GetMajor().".".$wx->GetMinor().".".$wx->GetMicro();
+	wxMessageBox
+	(	"Photo Editor v$PhotoEditorVersion".PHP_EOL.
+		"Author: Dave Kimble".PHP_EOL.
+		"January 2015".PHP_EOL.PHP_EOL.
+		"Using:".PHP_EOL.
+		"\tPHP v".phpversion().PHP_EOL.
+		"\twxWidgets v".$wxwidgets.PHP_EOL.
+		"\twxPHP v3.0.0.2".PHP_EOL.
+		"\t$im".PHP_EOL.
+		"\tMagickWandForPHP v1.0.9",
+		"About"
+	);
+}//===============================================
+function quit_button_clicked()
+{	global $stack, $temp, $window;
+	array_map("unlink", glob($temp."*.jpg"));
+	$window->Destroy();
+	exit(0);
+}
+//===============================================
+function MouseDown($event)
+{	global $dragstartx, $dragstarty, $mw, $mwstart, $panel, $photo, $photostart, $window ;
+	if(!$panel->HasCapture()) { $panel->CaptureMouse(); }
+	$dragstartx = wxGetMousePosition()->x - $window->GetPosition()->x - $panel->GetPosition()->x;  // relative to $panel
+	$dragstarty = wxGetMousePosition()->y - $window->GetPosition()->y - $panel->GetPosition()->y;
+}
+//=======================================================
+function MouseMove($event)
+{	global $crop, $dragstartx, $dragstarty, $dw, $line, $linecolourpicker, $linewidth, $mw, $mwstart, $photostart, $panel, $scale, $temp, $stack, $window, $topleftx, $toplefty, $bottomrightx, $bottomrighty;
+	if($event->Dragging())
+	{	$dragendx = wxGetMousePosition()->x - $window->GetPosition()->x - $panel->GetPosition()->x;  // relative to $panel
+		$dragendy = wxGetMousePosition()->y - $window->GetPosition()->y - $panel->GetPosition()->y;
+		//
+		$topleftx = $dragstartx / $scale;
+		$toplefty = $dragstarty / $scale;
+		$bottomrightx = $dragendx / $scale;
+		$bottomrighty = $dragendy / $scale;
+		//
+			
+		if($crop->IsShown()) 
+		{	if(IsDrawingWand($dw)) { DestroyDrawingWand($dw); }
+			$dw = NewDrawingWand();
+			DrawSetStrokeColor($dw, NewPixelWand("white"));
+			DrawSetStrokeWidth($dw, (1.5 / $scale));
+			DrawSetStrokeDashArray($dw, array((6 / $scale), (3 / $scale), (3 / $scale)));
+			DrawSetFillAlpha($dw, 0.0);
+			DrawRectangle($dw, $topleftx, $toplefty, $bottomrightx, $bottomrighty);
+		}
+		if($line->IsShown()) 
+		{	if(IsDrawingWand($dw)) { DestroyDrawingWand($dw); }
+			$dw = NewDrawingWand();
+			$red = $linecolourpicker->GetColour()->Red();
+			$green = $linecolourpicker->GetColour()->Green();
+			$blue = $linecolourpicker->GetColour()->Blue();
+			DrawSetStrokeColor($dw, NewPixelWand("rgb($red, $green, $blue)"));
+			//
+			DrawSetStrokeWidth($dw, floatval($linewidth->GetValue())); 
+			DrawLine($dw, $topleftx, $toplefty, $bottomrightx, $bottomrighty);
+		}
+		MagickDrawImage($mw, $dw);
+		//
+		newpaint();
+		$stack-- ;
+		MagickReadImage($mw, $temp.$stack.".jpg");	// go back to clean copy
+		$photo = new wxBitmap($temp.$stack.".jpg", wxBITMAP_TYPE_JPEG);
+	}
+}
+//=======================================================
+function MouseUp($event)
+{	global $bottomrightx, $bottomrighty, $crop, $dragstartx, $dragstarty, $dw, $line, $linecolourpicker, $linewidth, $mw, $mwstart, $panel, $scale, $text, $textbottombox, $textleftbox, $topleftx, $toplefty, $window ;
+	if($panel->HasCapture()) { $panel->ReleaseMouse(); }
+	if(!$event->ButtonDClick())
+	{	$dragendx = wxGetMousePosition()->x - $window->GetPosition()->x - $panel->GetPosition()->x;  // relative to $panel
+		$dragendy = wxGetMousePosition()->y - $window->GetPosition()->y - $panel->GetPosition()->y;
+		//
+		if($text->IsShown())
+		{	$textleftbox->SetValue($dragendx);
+			$textbottombox->SetValue($dragendy);
+			return 0 ;
+		}
+		//
+		$topleftx = $dragstartx / $scale;
+		$toplefty = $dragstarty / $scale;
+		$bottomrightx = $dragendx / $scale;
+		$bottomrighty = $dragendy / $scale;
+		//
+		if($crop->IsShown()) 
+		{	if(IsDrawingWand($dw)) { DestroyDrawingWand($dw); }
+			$dw = NewDrawingWand();
+			DrawSetStrokeColor($dw, NewPixelWand("white"));
+			DrawSetStrokeWidth($dw, (1 / $scale));
+			DrawSetStrokeDashArray($dw, array((6 / $scale), (3 / $scale), (3 / $scale)));
+			DrawSetFillAlpha($dw, 0.0);
+			DrawRectangle($dw, $topleftx, $toplefty, $bottomrightx, $bottomrighty);
+		}
+		if($line->IsShown()) 
+		{	if(IsDrawingWand($dw)) { DestroyDrawingWand($dw); }
+			$dw = NewDrawingWand();
+			$red = $linecolourpicker->GetColour()->Red();
+			$green = $linecolourpicker->GetColour()->Green();
+			$blue = $linecolourpicker->GetColour()->Blue();
+			DrawSetStrokeColor($dw, NewPixelWand("rgb($red, $green, $blue)"));
+			//
+			$width = floatval($linewidth->GetValue());
+			DrawSetStrokeWidth($dw, $width); 
+			DrawLine($dw, $topleftx, $toplefty, $bottomrightx, $bottomrighty);
+		}
+		// add drawing to photo
+		MagickDrawImage($mw, $dw);
+		newpaint();		// makes final copy
+	}
+}
+//=======================================================
+function newpaint()
+{	global $mw, $temp, $stack, $photo ;
+	$stack++ ;
+	MagickWriteImage($mw, $temp.$stack.".jpg");
+	$photo = new wxBitmap($temp.$stack.".jpg", wxBITMAP_TYPE_JPEG);
+	pre_paint();
+}
+//=======================================================
+function undopaint()
+{	global $mw, $temp, $stack, $photo ;
+	$stack-- ;
+	MagickReadImage($mw, $temp.$stack.".jpg");
+	$photo = new wxBitmap($temp.$stack.".jpg", wxBITMAP_TYPE_JPEG);
+	pre_paint();
+}
+//===============================================
+function pre_paint()
+{	global $background, $filebox, $heightbox, $panel, $photo, $scale, $scalebox, $stack, $widthbox ;
+	$photosize = $photo->getSize();  // type wxSize
+	$width = $photosize->GetWidth();
+	$widthbox->SetValue($width);
+	$height = $photosize->GetHeight();
+	$heightbox->SetValue($height);
+	// get background dimensions
+	$backgroundsize = $background->GetSize();  // type wxSize
+	$bgwidth = $backgroundsize->GetWidth();
+	$bgheight = $backgroundsize->GetHeight();
+	// set scale
+	$scale = 1.0 ;
+	if($width > $bgwidth) {	$scale = $bgwidth/$width ; }
+	if(($height*$scale) > $bgheight) { $scale = $bgheight/$height ;	}
+	$scalebox->SetValue(intval(100*$scale)." %");
+	//
+	$panel->SetSize(new wxSize($width*$scale, $height*$scale));
+	$panel->Centre();
+	if($stack > 0) { paint(); }
+}
+//===============================================
+function paint()
+{	global $panel, $photo, $scale ;
+	if(!$photo === false)
+	{	$painter = new wxPaintDC($panel);
+		$painter->SetDeviceOrigin(0, 0);			// top-left
+		$painter->SetAxisOrientation(true, false); 	//left-to-right, top-down
+		$painter->SetUserScale($scale, $scale);  	//axes scaled in proportion
+		$painter->DrawBitmap($photo, 0, 0);
+	}
+}
+//===============================================
+?>
+

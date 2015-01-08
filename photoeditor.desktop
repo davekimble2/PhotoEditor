@@ -1,0 +1,7 @@
+[Desktop Entry]
+Encoding=UTF-8
+Exec=lxterminal --command="php /home/dk/projects/PhotoEditor/photoeditor.wxphp"
+Icon=/home/dk/projects/PhotoEditor/photoeditor.png
+Name=PhotoEditor
+Categories=Graphics;
+Type=Application
