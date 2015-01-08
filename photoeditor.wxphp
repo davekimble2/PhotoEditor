@@ -219,7 +219,7 @@ $vbox3->Add($gbox3, 0, wxALL, 5);
 $adjust->SetSizer($vbox3);
 $adjust->Hide();
 //===============================================
-$crop = new wxFrame($window, wxID_ANY, "Fine Crop", new wxPoint(0, $toolbarheight), new wxSize(200, 300), wxDEFAULT_FRAME_STYLE | wxFRAME_FLOAT_ON_PARENT);
+$crop = new wxFrame($window, wxID_ANY, "Crop", new wxPoint(0, $toolbarheight), new wxSize(200, 300), wxDEFAULT_FRAME_STYLE | wxFRAME_FLOAT_ON_PARENT);
 $vbox4 = new wxBoxSizer(wxVERTICAL);
 	$radiobox4 = new wxRadioBox($crop, wxID_ANY, "", wxDefaultPosition, wxDefaultSize, 
 			array("Select by mouse", "Trim Edges"), 1 );
