@@ -4,6 +4,7 @@ $PhotoEditorVersion = "0.99";
 $folder = "/home/dk/projects/PhotoEditor";
 $icon = new wxIcon("$folder/icons/photoeditor.png", wxBITMAP_TYPE_PNG );
 $temp = "$folder/temp/";	// work folder
+if(!file_exists($temp) || !is_dir($temp)) { mkdir($temp); }
 $defaultOpenDir = "/private/MyPhotos/2014-08-26";
 $defaultSaveDir = "/home/dk/www/davekimble.org.au/public_html/rainforest";
 $defaultAddText = "© Dave Kimble 2015";

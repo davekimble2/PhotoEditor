@@ -14,30 +14,30 @@ Requirements:
 
 You must have installed:
 
-	PHP 5.4.29	 					v5.5.9 is backwards compatible 
+	PHP 5.4.29	 			v5.5.9 is backwards compatible 
 	
-								      	http://php.net/downloads.php 
+							http://php.net/downloads.php 
 								      	
-	wxWidgets 3.0.0+ 			https://github.com/wxphp/wxphp/wiki
+	wxWidgets 3.0.0+ 		https://github.com/wxphp/wxphp/wiki
 	
-							      	  svn checkout http://svn.wxwidgets.org/svn/wx/wxWidgets/tags/WX_3_0_0 wxWidgets
+							svn checkout http://svn.wxwidgets.org/svn/wx/wxWidgets/tags/WX_3_0_0 wxWidgets
 							      	  
 	ImageMagick 6.9.0+ 		https://subversion.imagemagick.org/subversion/ImageMagick/branches/ImageMagick-6.6.0/www/install-source.html
 	
-							      		http://www.imagemagick.org/download/
+							http://www.imagemagick.org/download/
 							      		
 	wxPHP 3.0.0.2+      	https://github.com/wxphp/wxphp/wiki
 	
-							      		git clone https://github.com/wxPHP/wxPHP.git wxphp
+							git clone https://github.com/wxPHP/wxPHP.git wxphp
 							      		
-	MagickWandForPHP 1.0.9+			http://magickwand.org/
+	MagickWandForPHP 1.0.9+	http://magickwand.org/
 	
-								      	svn co https://www.imagemagick.org/subversion/MagickWandForPHP/trunk MagickWandForPHP
+							svn co https://www.imagemagick.org/subversion/MagickWandForPHP/trunk MagickWandForPHP
 								      	
 
 Installation: 
 
-1.	Download the files to /PhotoEditor folder in your filespace
+1.	Download the files to your filespace: git clone https://github.com/davekimble2/PhotoEditor /path/to/PhotoEditor
 
 2.	Edit .../PhotoEditor/photoeditor.wxphp configuration section to set your default path/folders, etc
 
