@@ -3,11 +3,11 @@ A GUI application written in PHP using wxWidgets (via wxPHP) and ImageMagick (vi
 
 Title: Photo Editor
 
-Version: 0.99.0
+Version: 0.99.1
 
 Author: Dave Kimble
 
-Date: 8 January 2015
+Date: 14 January 2015
 
 
 Requirements: 
@@ -39,14 +39,14 @@ Installation:
 
 1.	Download the files to your filespace: git clone https://github.com/davekimble2/PhotoEditor /path/to/PhotoEditor
 
-2.	Edit .../PhotoEditor/photoeditor.wxphp configuration section to set your default path/folders, etc
+2.	Edit /path/to/PhotoEditor/photoeditor.wxphp configuration section to set your default path/folders, etc
 
    
 Running:
 
 3.	Run with php /path/to/PhotoEditor/photoeditor.wxphp
 
-  	or (for Ubuntu 14.04)
+  	or (for Debian-based Linux)
   	
   	edit the photoeditor.desktop file for file paths
   	
@@ -54,25 +54,17 @@ Running:
   	
   	and launch from the main menu.
   	
-4.	The main window always runs maximized, 
+4.	The main window always starts full-screen, but responds to f11-key to become maximised. 
 
-  	you can hide the main window by clicking the minimize icon or the tray icon.
-  	
-	  You can show the main window by clicking the tray icon again.
+  	you can hide the main window by clicking the minimize icon on the toolbar.
 	  
 5.	The Toolbar can be hidden by clicking the Hide button.
 
-	  You can show the Toolbar again by single left click anywhere on the main window.
+	You can show the Toolbar again by single left click anywhere on the main window's background.
 	  
-6.	The Exif Properties button will show the original image's Exif data,
-
-	  which will be included on saving.
+6.	The Exif Properties button will show the original image's Exif data, which will be included on saving.
 	  
    
 Known issues:
 
-1.	Runs as Always On Top (this appears to be a platform-dependent bug in wxWidgets)
-
-2.	Does not respond to f11 key, so doesn't run FullScreen on Ubuntu 14.04
-
-3.	Does not create a taskbar icon in Ubuntu 14.04
+1.	When the main window is full-screen, the toolbar remains with width suited to a maximised main window.
