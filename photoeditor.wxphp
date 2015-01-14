@@ -1,14 +1,12 @@
 <?php	// Photo Editor
-$PhotoEditorVersion = "0.99";
+$PhotoEditorVersion = "0.99.1";
 // ====================== configuration ========================
-$folder = "/home/dk/projects/PhotoEditor";
-$icon = new wxIcon("$folder/icons/photoeditor.png", wxBITMAP_TYPE_PNG );
-$temp = "$folder/temp/";	// work folder
-if(!file_exists($temp) || !is_dir($temp)) { mkdir($temp); }
-$defaultOpenDir = "/private/MyPhotos/2014-08-26";
-$defaultSaveDir = "/home/dk/www/davekimble.org.au/public_html/rainforest";
-$defaultAddText = "© Dave Kimble 2015";
+$folder = "/path/to/PhotoEditor";
+$defaultOpenDir = "/path/to/input-folder";
+$defaultSaveDir = "/path/to/out-folder";
+$defaultAddText = "© 2015";
 // ====================== used globally ========================
+$buttonsize = new wxSize(28, 28);
 $dragstartx;
 $dragstarty;
 $dw;
@@ -17,11 +15,16 @@ $photo = false;
 $scale;
 $stack = 0;
 $toolbarheight = 30;
-$buttonsize = new wxSize(28, 28);
+// work folder used for undo stack
+$temp = "$folder/temp/";	
+if(!file_exists($temp) || !is_dir($temp)) { mkdir($temp); }
 // ====================================================================
 // create main window
-$window = new wxFrame(null, wxID_TOP, "", wxDefaultPosition, wxGetDisplaySize(), ~wxCAPTION );
+$window = new wxFrame(null, wxID_TOP, "PhotoEditor" );
+$window->Maximize();
 wxInitAllImageHandlers();
+$icon = new wxIcon("$folder/icons/photoeditor.png", wxBITMAP_TYPE_PNG );
+$window->SetIcon($icon);
 $trayicon = new wxTaskBarIcon();
 $trayicon->SetIcon($icon);
 $trayicon->Connect(wxEVT_TASKBAR_LEFT_DOWN, array(wxID_TOP, "trayicon_clicked"));
